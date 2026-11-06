@@ -13,6 +13,10 @@ enum SkydimoDeviceFinder {
         0x1A86,
         0x10C4,
         0x0403,
+        0x067B,
+        0x2341,
+        0x2A03,
+        0x303A,
     ]
 
     static func listSerialDevices() -> [SerialDeviceInfo] {

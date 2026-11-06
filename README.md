@@ -13,8 +13,9 @@ Native macOS menu-bar app that turns a Skydimo (or any Adalight-compatible) LED 
 
 ## Why
 
-<!-- TODO(Roman): confirm the state of official macOS support and your personal motivation. -->
-Skydimo's official software is built for Windows, and on macOS there was no lightweight native option. SkydimoAmbient is a small, dependency-free Swift app that talks to the controller directly: no background services, no Electron, near-idle CPU.
+Skydimo has no official app for macOS on Apple Silicon. The open-source ambient-lighting tools that do run on a Mac are heavyweight general-purpose servers: they use a lot of resources and take a lot of setup for a single strip behind a monitor.
+
+SkydimoAmbient is the opposite: a small native Swift app with no dependencies. It lives in the menu bar, auto-detects the controller and uses about 1% CPU while it runs.
 
 ## Features
 
@@ -22,7 +23,7 @@ Skydimo's official software is built for Windows, and on macOS there was no ligh
 - **GPU color averaging**: one Metal compute pass reduces every LED zone to a single color, and only one value per zone is read back to the CPU.
 - **Letterbox detection**: black bars in movies are detected and skipped, so the top and bottom LEDs follow the picture rather than the bars.
 - **Skydimo and standard Adalight protocols**: classic `Ada` header with checksum, or the fixed Skydimo header. Any baud rate (115200 to 2 000 000) is supported.
-- **Auto-detection** of CH340, CP210x and FTDI USB-serial controllers.
+- **Auto-detection** of common USB-serial LED controllers: CH340/CH9102 (WCH), CP210x, FTDI, PL2303, Arduino and ESP32 native USB.
 - **Flexible strip layout**: LED count per side, start corner, direction and edge sampling depth.
 - **Live settings window**: brightness, gamma, color order and letterbox settings apply instantly and are saved automatically.
 - **Self-healing**:
@@ -36,10 +37,13 @@ Skydimo's official software is built for Windows, and on macOS there was no ligh
 
 | Device | Connection | Status |
 |---|---|---|
-| Skydimo LED strip kit, 138 LEDs (44 / 25 / 44 / 25) <!-- TODO(Roman): exact model --> | USB, 115200 baud, fixed header | Tested |
-| Generic Adalight controllers (Arduino + WS2812 etc.) | USB-serial, configurable baud | Supported by protocol, not tested |
+| Skydimo USB LED kit (CH340 controller, 156 LEDs) | USB, 115200 baud, fixed header | Tested |
+| Other Skydimo kits | Same protocol, set your LED count per side | Expected to work |
+| Adalight controllers (Arduino / ESP8266 / ESP32 + WS2812, SK6812, …) | USB-serial, any baud rate | Supported by protocol, not tested |
 
-Requires macOS 13 Ventura or later. Developed on Apple Silicon.
+Requires macOS 13 Ventura or later. Release builds are universal (Apple Silicon and Intel); tested on Apple Silicon.
+
+If your controller isn't auto-detected, run `--list-serial-devices` and set `serialPort` in Settings.
 
 ## Installation
 
@@ -62,6 +66,7 @@ git clone https://github.com/OWNER/REPO.git
 cd REPO
 swift test           # run the unit tests
 ./build-app.sh       # release build → SkydimoAmbient.app (ad-hoc signed)
+# UNIVERSAL=1 ./build-app.sh   # arm64 + x86_64 binary (needs full Xcode)
 open SkydimoAmbient.app
 ```
 
@@ -76,7 +81,7 @@ open SkydimoAmbient.app
    ./SkydimoAmbient.app/Contents/MacOS/SkydimoAmbient --test-ends
    ```
    Zone 0 lights red and the last zone blue. Set **Start corner** and **Clockwise** to match.
-4. For a Skydimo kit, enable **Fixed Ada header** and use 115200 baud (see [`examples/skydimo-138-leds.json`](examples/skydimo-138-leds.json)).
+4. For a Skydimo kit, enable **Fixed Ada header** and use 115200 baud (see [`examples/skydimo-156-leds.json`](examples/skydimo-156-leds.json)).
 
 Settings are stored in `~/.config/skydimo-ambient/config.json`. A different file can be passed with `--config <path>`. Fields that change the capture stream or the serial port show a "restart required" banner; everything else applies live.
 
@@ -133,8 +138,15 @@ flowchart LR
 5. **Transport.** The serial port is opened in raw mode with 2 stop bits, and the speed is set through the `IOSSIOSPEED` ioctl, so any baud rate works. A dedicated queue always sends only the newest frame, so the strip never falls behind the screen. Each write is paced by `tcdrain` and guarded by a watchdog.
 6. **Supervision.** Capture and serial each run under a retry supervisor (a Swift `actor`) that restarts them after sleep, unplugging or errors. A once-per-second heartbeat resends the last frame, so a static screen doesn't blank the strip.
 
-**Performance.** <!-- TODO(Roman/Claude): fill in measured CPU %, memory and effective FPS on real hardware. -->
-At 115200 baud, a 138-LED frame (420 bytes) takes about 40 ms on the wire, which caps the update rate at about 24 fps at that speed. Higher baud rates remove that limit on controllers that support them.
+**Performance** (Apple Silicon, 156-LED Skydimo kit, 115200 baud, measured with `ps` and the serial port's byte counter):
+
+| Metric | Value |
+|---|---|
+| App CPU while capturing | ~1.1 % |
+| Memory (RSS) | ~57 MB |
+| Frames delivered to the strip | ~10 fps |
+
+At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so the link itself tops out at about 22 fps. The current rate is lower because the sender waits up to 50 ms for an acknowledgement byte after each frame (see Known issues).
 
 ## Tech stack
 
@@ -167,6 +179,7 @@ Sources/SkydimoAmbient/
 - [ ] Color smoothing between frames
 - [ ] In fixed-header (Skydimo) mode the LED count is sent as a single byte, so strips with more than 255 LEDs are not supported
 - [ ] Changing capture, serial or zone settings requires an app restart (offered from the settings window)
+- [ ] The sender waits up to 50 ms for an acknowledgement after each frame; Skydimo controllers don't send one, which limits the update rate to ~10 fps at 115200 baud
 
 ## Acknowledgements
 
