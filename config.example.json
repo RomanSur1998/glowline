@@ -1,0 +1,19 @@
+{
+  "displayIndex": 0,
+  "captureWidth": 192,
+  "targetFPS": 30,
+  "serialPort": null,
+  "baudRate": 500000,
+  "zones": {
+    "top": 10,
+    "bottom": 10,
+    "left": 6,
+    "right": 6,
+    "startCorner": "topLeft",
+    "clockwise": true,
+    "edgeDepthFraction": 0.15
+  },
+  "gamma": 1.0,
+  "brightness": 1.0,
+  "colorOrder": "RGB"
+}

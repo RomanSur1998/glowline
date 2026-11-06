@@ -1,0 +1,22 @@
+{
+  "displayIndex": 0,
+  "captureWidth": 192,
+  "targetFPS": 30,
+  "serialPort": null,
+  "baudRate": 115200,
+  "zones": {
+    "top": 44,
+    "bottom": 44,
+    "left": 25,
+    "right": 25,
+    "startCorner": "bottomRight",
+    "clockwise": false,
+    "edgeDepthFraction": 0.25
+  },
+  "gamma": 2.2,
+  "brightness": 1.4,
+  "colorOrder": "RGB",
+  "fixedAdaHeader": true,
+  "letterboxDetection": true,
+  "letterboxThreshold": 0.06
+}
