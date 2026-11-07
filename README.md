@@ -144,9 +144,9 @@ flowchart LR
 |---|---|
 | App CPU while capturing | ~1.1 % |
 | Memory (RSS) | ~57 MB |
-| Frames delivered to the strip | ~10 fps |
+| Frames delivered to the strip | ~10 fps before the adaptive pacing fix, re-measurement pending |
 
-At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so the link itself tops out at about 22 fps. The current rate is lower because the sender waits up to 50 ms for an acknowledgement byte after each frame (see Known issues).
+At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so the link itself tops out at about 22 fps. After each frame the sender waits up to 50 ms for an acknowledgement byte. If the controller doesn't answer three frames in a row (Skydimo doesn't), it switches to a 5 ms gap instead, which lets the link run close to its limit. If an acknowledgement shows up later, the 50 ms wait comes back.
 
 ## Tech stack
 
@@ -179,7 +179,6 @@ Sources/SkydimoAmbient/
 - [ ] Color smoothing between frames
 - [ ] In fixed-header (Skydimo) mode the LED count is sent as a single byte, so strips with more than 255 LEDs are not supported
 - [ ] Changing capture, serial or zone settings requires an app restart (offered from the settings window)
-- [ ] The sender waits up to 50 ms for an acknowledgement after each frame; Skydimo controllers don't send one, which limits the update rate to ~10 fps at 115200 baud
 
 ## Acknowledgements
 

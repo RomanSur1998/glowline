@@ -114,6 +114,7 @@ final class AsyncFrameSender {
     private let lock = NSLock()
     private var pending: Data?
     private var draining = false
+    private var pacer = AckPacer()
     var onError: ((Error) -> Void)?
 
     init(serial: SerialPort) {
@@ -143,7 +144,8 @@ final class AsyncFrameSender {
 
             do {
                 try serial.write(frame)
-                serial.readByte(timeoutMs: 50)
+                let ack = serial.readByte(timeoutMs: pacer.waitTimeoutMs)
+                pacer.record(ackReceived: ack != nil)
             } catch {
                 onError?(error)
             }
