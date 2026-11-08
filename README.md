@@ -143,10 +143,10 @@ flowchart LR
 | Metric | Value |
 |---|---|
 | App CPU while capturing | ~1.1 % |
-| Memory (RSS) | ~57 MB |
-| Frames delivered to the strip | ~10 fps before the adaptive pacing fix, re-measurement pending |
+| Memory (RSS) | 60–100 MB |
+| Frames delivered to the strip | 16 fps (= configured `targetFPS`; was 9.7 fps before adaptive pacing) |
 
-At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so the link itself tops out at about 22 fps. After each frame the sender waits up to 50 ms for an acknowledgement byte. If the controller doesn't answer three frames in a row (Skydimo doesn't), it switches to a 5 ms gap instead, which lets the link run close to its limit. If an acknowledgement shows up later, the 50 ms wait comes back.
+At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so the link itself tops out at about 22 fps. After each frame the sender waits up to 50 ms for an acknowledgement byte. If the controller doesn't answer three frames in a row (Skydimo doesn't), it switches to a 5 ms gap instead, which lets the link run close to its limit: on the test kit this raised the delivered frame rate from 9.7 fps to the configured 16 fps. If an acknowledgement shows up later, the 50 ms wait comes back.
 
 ## Tech stack
 
