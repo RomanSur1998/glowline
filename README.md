@@ -9,7 +9,7 @@ Native macOS menu-bar app that turns the LED strip behind your monitor into real
 
 ## Demo
 
-![Demo](assets/demo.gif)
+![Glowline running behind a monitor](assets/glowline_demo.jpg)
 
 ## Why
 
