@@ -36,7 +36,7 @@ final class ScreenCapture: NSObject, SCStreamOutput, SCStreamDelegate {
         configuration.scalesToFit = true
 
         let newStream = SCStream(filter: filter, configuration: configuration, delegate: self)
-        try newStream.addStreamOutput(self, type: .screen, sampleHandlerQueue: DispatchQueue(label: "skydimo.capture"))
+        try newStream.addStreamOutput(self, type: .screen, sampleHandlerQueue: DispatchQueue(label: "glowline.capture"))
         try await newStream.startCapture()
         self.stream = newStream
     }

@@ -11,9 +11,9 @@ struct RuntimeError: Error, CustomStringConvertible {
 private func printUsage() {
     print(
         """
-        Usage: skydimo-ambient [options]
+        Usage: glowline [options]
 
-          --config <path>          Path to JSON config (default: ~/.config/skydimo-ambient/config.json, then ./config.json)
+          --config <path>          Path to JSON config (default: ~/.config/glowline/config.json, then ./config.json)
           --dry-run                Don't open a serial port; capture and compute frames, logging a summary every 60 frames
           --test-frame [r,g,b]     Send one solid-color frame to the configured serial port and exit
                                    (no screen capture involved -- works without Screen Recording permission)
@@ -29,7 +29,7 @@ private func printUsage() {
 private func defaultConfigPath() -> String? {
     let fm = FileManager.default
     let home = fm.homeDirectoryForCurrentUser.path
-    let userConfig = "\(home)/.config/skydimo-ambient/config.json"
+    let userConfig = "\(home)/.config/glowline/config.json"
     if fm.fileExists(atPath: userConfig) { return userConfig }
     if fm.fileExists(atPath: "config.json") { return "config.json" }
     return nil
@@ -69,15 +69,15 @@ func runApp() async throws -> AppRuntime {
     }
 
     if listSerial {
-        let devices = SkydimoDeviceFinder.listSerialDevices()
+        let devices = SerialDeviceFinder.listSerialDevices()
         if devices.isEmpty {
             print("No serial devices found.")
         }
         for d in devices {
             let vid = d.vendorID.map { String(format: "0x%04X", $0) } ?? "?"
             let pid = d.productID.map { String(format: "0x%04X", $0) } ?? "?"
-            let known = d.vendorID.map { SkydimoDeviceFinder.knownVendorIDs.contains($0) } ?? false
-            print("\(d.path)  vendor=\(vid) product=\(pid)\(known ? "  [likely Adalight/Skydimo adapter]" : "")")
+            let known = d.vendorID.map { SerialDeviceFinder.knownVendorIDs.contains($0) } ?? false
+            print("\(d.path)  vendor=\(vid) product=\(pid)\(known ? "  [likely LED controller]" : "")")
         }
         exit(0)
     }
@@ -118,7 +118,7 @@ func runApp() async throws -> AppRuntime {
     let frameSettings = LiveFrameSettings(colorOrder: config.colorOrder, fixedAdaHeader: config.fixedAdaHeader)
 
     let settingsSavePath =
-        resolvedConfigPath ?? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.config/skydimo-ambient/config.json"
+        resolvedConfigPath ?? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.config/glowline/config.json"
     let settingsStore = await SettingsStore(config: config, configPath: settingsSavePath, averager: averager, frameSettings: frameSettings)
 
     let menuBarController = MenuBarController(settingsStore: settingsStore)

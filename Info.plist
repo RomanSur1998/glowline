@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.surkovroman.skydimoambient</string>
+    <string>com.surkovroman.glowline</string>
     <key>CFBundleName</key>
-    <string>SkydimoAmbient</string>
+    <string>Glowline</string>
     <key>CFBundleDisplayName</key>
-    <string>SkydimoAmbient</string>
+    <string>Glowline</string>
     <key>CFBundleExecutable</key>
-    <string>SkydimoAmbient</string>
+    <string>Glowline</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

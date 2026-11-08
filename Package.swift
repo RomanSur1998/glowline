@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "SkydimoAmbient",
+    name: "Glowline",
     platforms: [
         .macOS(.v13)
     ],
     targets: [
         .executableTarget(
-            name: "SkydimoAmbient",
-            path: "Sources/SkydimoAmbient",
+            name: "Glowline",
+            path: "Sources/Glowline",
             resources: []
         ),
         .testTarget(
-            name: "SkydimoAmbientTests",
-            dependencies: ["SkydimoAmbient"],
-            path: "Tests/SkydimoAmbientTests"
+            name: "GlowlineTests",
+            dependencies: ["Glowline"],
+            path: "Tests/GlowlineTests"
         ),
     ]
 )

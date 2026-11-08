@@ -102,7 +102,7 @@ final class MenuBarController: NSObject {
         )
 
         let window = NSWindow(contentViewController: hosting)
-        window.title = "SkydimoAmbient — Settings"
+        window.title = "Glowline — Settings"
         window.styleMask = [.titled, .closable]
         window.isReleasedWhenClosed = false
         window.center()

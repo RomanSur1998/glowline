@@ -90,7 +90,7 @@ final class SettingsStore: ObservableObject {
     }
 
     func refreshDeviceLists() {
-        availableSerialDevices = SkydimoDeviceFinder.listSerialDevices()
+        availableSerialDevices = SerialDeviceFinder.listSerialDevices()
         Task {
             guard let displays = try? await ScreenCapture.availableDisplays() else { return }
             availableDisplays = displays.enumerated().map { i, d in

@@ -8,7 +8,7 @@ struct SerialDeviceInfo {
     let productID: Int?
 }
 
-enum SkydimoDeviceFinder {
+enum SerialDeviceFinder {
     static let knownVendorIDs: Set<Int> = [
         0x1A86,
         0x10C4,

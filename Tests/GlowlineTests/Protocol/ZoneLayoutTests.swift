@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import SkydimoAmbient
+@testable import Glowline
 
 final class ZoneLayoutTests: XCTestCase {
     private func layout(top: Int = 10, bottom: Int = 10, left: Int = 6, right: Int = 6, start: Corner = .topLeft, clockwise: Bool = true)

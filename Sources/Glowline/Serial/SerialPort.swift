@@ -110,7 +110,7 @@ final class SerialPort {
 
 final class AsyncFrameSender {
     private let serial: SerialPort
-    private let queue = DispatchQueue(label: "skydimo.serial")
+    private let queue = DispatchQueue(label: "glowline.serial")
     private let lock = NSLock()
     private var pending: Data?
     private var draining = false

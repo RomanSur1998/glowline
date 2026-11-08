@@ -30,8 +30,8 @@ final class SerialSupervisor: @unchecked Sendable {
     }
 
     private func connectAttempt() async throws {
-        guard let path = configuredPath ?? SkydimoDeviceFinder.autoDetect() else {
-            print("Skydimo not connected -- waiting (checking every 5s)...")
+        guard let path = configuredPath ?? SerialDeviceFinder.autoDetect() else {
+            print("LED controller not connected -- waiting (checking every 5s)...")
             onConnectionChange?(false)
             throw SerialSupervisorError.noDeviceFound
         }

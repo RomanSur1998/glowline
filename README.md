@@ -1,6 +1,6 @@
-# SkydimoAmbient
+# Glowline
 
-Native macOS menu-bar app that turns a Skydimo (or any Adalight-compatible) LED strip into real-time ambient lighting for your screen.
+Native macOS menu-bar app that turns the LED strip behind your monitor into real-time ambient lighting. Works with Skydimo kits and Adalight-compatible controllers.
 
 [![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)
@@ -13,9 +13,9 @@ Native macOS menu-bar app that turns a Skydimo (or any Adalight-compatible) LED 
 
 ## Why
 
-Skydimo has no official app for macOS on Apple Silicon. The open-source ambient-lighting tools that do run on a Mac are heavyweight general-purpose servers: they use a lot of resources and take a lot of setup for a single strip behind a monitor.
+USB LED kits such as Skydimo ship no app for macOS on Apple Silicon. The open-source ambient-lighting tools that do run on a Mac are heavyweight general-purpose servers: they use a lot of resources and take a lot of setup for a single strip behind a monitor.
 
-SkydimoAmbient is the opposite: a small native Swift app with no dependencies. It lives in the menu bar, auto-detects the controller and uses about 1% CPU while it runs.
+Glowline is the opposite: a small native Swift app with no dependencies. It lives in the menu bar, auto-detects the controller and uses about 1% CPU while it runs.
 
 ## Features
 
@@ -49,11 +49,11 @@ If your controller isn't auto-detected, run `--list-serial-devices` and set `ser
 
 ### Download a release
 
-1. Download `SkydimoAmbient-<version>.zip` from [Releases](../../releases) and unzip it.
-2. Move `SkydimoAmbient.app` to `/Applications`.
+1. Download `Glowline-<version>.zip` from [Releases](../../releases) and unzip it.
+2. Move `Glowline.app` to `/Applications`.
 3. The app is ad-hoc signed, not notarized. On first launch, right-click it and choose **Open**, or run:
    ```sh
-   xattr -dr com.apple.quarantine /Applications/SkydimoAmbient.app
+   xattr -dr com.apple.quarantine /Applications/Glowline.app
    ```
 4. Grant **Screen Recording** permission when asked (System Settings → Privacy & Security → Screen & System Audio Recording), then use **Restart** from the menu-bar icon.
 
@@ -65,12 +65,12 @@ Requirements: macOS 13+, Xcode 15.3+ or the Swift 5.10+ command-line toolchain.
 git clone https://github.com/OWNER/REPO.git
 cd REPO
 swift test           # run the unit tests
-./build-app.sh       # release build → SkydimoAmbient.app (ad-hoc signed)
+./build-app.sh       # release build → Glowline.app (ad-hoc signed)
 # UNIVERSAL=1 ./build-app.sh   # arm64 + x86_64 binary (needs full Xcode)
-open SkydimoAmbient.app
+open Glowline.app
 ```
 
-`build-app.sh` pins the code signature to the bundle identifier, so the Screen Recording permission survives rebuilds. For quick iteration, `swift run SkydimoAmbient --help` works too, but macOS will ask for the permission again after every rebuild.
+`build-app.sh` pins the code signature to the bundle identifier, so the Screen Recording permission survives rebuilds. For quick iteration, `swift run Glowline --help` works too, but macOS will ask for the permission again after every rebuild.
 
 ## Usage
 
@@ -78,18 +78,18 @@ open SkydimoAmbient.app
 2. Open **Settings…** from the menu-bar icon and set the LED count per side.
 3. To find out where LED #0 is and which way the strip runs:
    ```sh
-   ./SkydimoAmbient.app/Contents/MacOS/SkydimoAmbient --test-ends
+   ./Glowline.app/Contents/MacOS/Glowline --test-ends
    ```
    Zone 0 lights red and the last zone blue. Set **Start corner** and **Clockwise** to match.
 4. For a Skydimo kit, enable **Fixed Ada header** and use 115200 baud (see [`examples/skydimo-156-leds.json`](examples/skydimo-156-leds.json)).
 
-Settings are stored in `~/.config/skydimo-ambient/config.json`. A different file can be passed with `--config <path>`. Fields that change the capture stream or the serial port show a "restart required" banner; everything else applies live.
+Settings are stored in `~/.config/glowline/config.json`. A different file can be passed with `--config <path>`. Fields that change the capture stream or the serial port show a "restart required" banner; everything else applies live.
 
 <details>
 <summary>Command-line options</summary>
 
 ```
---config <path>          Path to JSON config (default: ~/.config/skydimo-ambient/config.json, then ./config.json)
+--config <path>          Path to JSON config (default: ~/.config/glowline/config.json, then ./config.json)
 --dry-run                Don't open a serial port; capture and compute frames, logging a summary every 60 frames
 --test-frame [r,g,b]     Send one solid-color frame to the configured serial port and exit
                          (no screen capture involved -- works without Screen Recording permission)
@@ -161,7 +161,7 @@ At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so th
 ## Project structure
 
 ```
-Sources/SkydimoAmbient/
+Sources/Glowline/
 ├── App/          entry point, CLI parsing, diagnostics
 ├── Capture/      ScreenCaptureKit stream + restart supervisor
 ├── Processing/   Metal zone averager and shaders

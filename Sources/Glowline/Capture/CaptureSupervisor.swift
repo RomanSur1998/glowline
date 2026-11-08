@@ -46,7 +46,7 @@ final class CaptureSupervisor: @unchecked Sendable {
         resource.stop { [self] in
             let capture = currentCapture
             currentCapture = nil
-            print("Skydimo not connected -- pausing screen capture until it is.")
+            print("LED controller not connected -- pausing screen capture until it is.")
             Task { await capture?.stop() }
         }
     }

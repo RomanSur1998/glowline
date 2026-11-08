@@ -17,7 +17,7 @@ func runDiagnosticCommandIfRequested(
         guard parts.count == 3 else {
             throw RuntimeError("--test-frame expects \"r,g,b\" (0-255 each), got \"\(testColorArg)\"")
         }
-        guard let path = config.serialPort ?? SkydimoDeviceFinder.autoDetect() else {
+        guard let path = config.serialPort ?? SerialDeviceFinder.autoDetect() else {
             throw RuntimeError("No serial port configured and none auto-detected. Set \"serialPort\" in config.json.")
         }
         let serial = try SerialPort(path: path, baudRate: config.baudRate)
@@ -44,7 +44,7 @@ func runDiagnosticCommandIfRequested(
     }
 
     if testEnds {
-        guard let path = config.serialPort ?? SkydimoDeviceFinder.autoDetect() else {
+        guard let path = config.serialPort ?? SerialDeviceFinder.autoDetect() else {
             throw RuntimeError("No serial port configured and none auto-detected. Set \"serialPort\" in config.json.")
         }
         let serial = try SerialPort(path: path, baudRate: config.baudRate)

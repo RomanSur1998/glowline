@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import SkydimoAmbient
+@testable import Glowline
 
 final class RetryingResourceTests: XCTestCase {
     private final class AttemptCounter {
