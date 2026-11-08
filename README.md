@@ -13,7 +13,7 @@ Native macOS menu-bar app that turns the LED strip behind your monitor into real
 
 ## Why
 
-USB LED kits such as Skydimo ship no app for macOS on Apple Silicon. The open-source ambient-lighting tools that do run on a Mac are heavyweight general-purpose servers: they use a lot of resources and take a lot of setup for a single strip behind a monitor.
+Skydimo's own macOS utility didn't detect my strip reliably on Apple Silicon. The open-source ambient-lighting tools that do run on a Mac found it, but cut off the end of the strip or used the wrong protocol, and they are heavyweight general-purpose servers: a lot of resources and setup for a single strip behind a monitor.
 
 Glowline is the opposite: a small native Swift app with no dependencies. It lives in the menu bar, auto-detects the controller and uses about 1% CPU while it runs.
 
