@@ -2,7 +2,7 @@
 
 Native macOS menu-bar app that turns the LED strip behind your monitor into real-time ambient lighting. Works with Skydimo kits and Adalight-compatible controllers.
 
-[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+[![CI](https://github.com/RomanSur1998/glowline/actions/workflows/ci.yml/badge.svg)](https://github.com/RomanSur1998/glowline/actions/workflows/ci.yml)
 ![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)
 ![Swift 5.10](https://img.shields.io/badge/Swift-5.10-orange)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
@@ -62,8 +62,8 @@ If your controller isn't auto-detected, run `--list-serial-devices` and set `ser
 Requirements: macOS 13+, Xcode 15.3+ or the Swift 5.10+ command-line toolchain.
 
 ```sh
-git clone https://github.com/OWNER/REPO.git
-cd REPO
+git clone https://github.com/RomanSur1998/glowline.git
+cd glowline
 swift test           # run the unit tests
 ./build-app.sh       # release build → Glowline.app (ad-hoc signed)
 # UNIVERSAL=1 ./build-app.sh   # arm64 + x86_64 binary (needs full Xcode)
