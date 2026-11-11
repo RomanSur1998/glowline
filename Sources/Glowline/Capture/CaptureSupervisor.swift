@@ -12,6 +12,10 @@ final class LastFrameBox {
     func get() -> Data? {
         frame
     }
+
+    func clear() {
+        frame = nil
+    }
 }
 
 final class CaptureSupervisor: @unchecked Sendable {
@@ -46,7 +50,7 @@ final class CaptureSupervisor: @unchecked Sendable {
         resource.stop { [self] in
             let capture = currentCapture
             currentCapture = nil
-            print("LED controller not connected -- pausing screen capture until it is.")
+            print("Screen capture paused.")
             Task { await capture?.stop() }
         }
     }

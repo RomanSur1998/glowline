@@ -3,7 +3,17 @@
 All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - Unreleased
+## [Unreleased]
+
+### Added
+- Lighting modes: Screen sync, Solid color, Gradient, Rainbow and Breathing
+- Mode switching from the menu bar and a Mode section in the settings window with color pickers and effect speed
+- Config keys `mode`, `color`, `secondColor` and `effectSpeed`
+
+### Changed
+- Screen capture runs only in Screen sync mode; effect modes stop it
+
+## [0.1.0] - 2026-11-08
 
 First public release.
 
@@ -21,4 +31,5 @@ First public release.
 - Diagnostics: `--test-frame`, `--test-ends`, `--dry-run`, `--list-displays`, `--list-serial-devices`
 - Universal (Apple Silicon + Intel) release build
 
+[Unreleased]: https://github.com/RomanSur1998/glowline/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/RomanSur1998/glowline/releases/tag/v0.1.0

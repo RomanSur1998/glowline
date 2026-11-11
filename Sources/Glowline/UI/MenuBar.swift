@@ -2,14 +2,15 @@ import AppKit
 import SwiftUI
 
 enum ConnectionStatus {
-    case connected
+    case connected(LightingMode)
     case disconnected
-    case dryRun
+    case dryRun(LightingMode)
 }
 
-final class MenuBarController: NSObject {
+final class MenuBarController: NSObject, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
+    private var modeItems: [LightingMode: NSMenuItem] = [:]
     private var settingsWindow: NSWindow?
     private let settingsStore: SettingsStore
 
@@ -34,6 +35,15 @@ final class MenuBarController: NSObject {
         menu.addItem(statusMenuItem)
         menu.addItem(.separator())
 
+        for mode in LightingMode.allCases {
+            let item = NSMenuItem(title: mode.title, action: #selector(selectMode(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = mode.rawValue
+            modeItems[mode] = item
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
@@ -50,22 +60,39 @@ final class MenuBarController: NSObject {
         quitItem.target = self
         menu.addItem(quitItem)
 
+        menu.delegate = self
         statusItem.menu = menu
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        let current = MainActor.assumeIsolated { settingsStore.lightingMode }
+        for (mode, item) in modeItems {
+            item.state = mode == current ? .on : .off
+        }
+    }
+
+    @objc private func selectMode(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let mode = LightingMode(rawValue: raw) else { return }
+        MainActor.assumeIsolated { settingsStore.lightingMode = mode }
+    }
+
+    private static func describe(_ mode: LightingMode) -> String {
+        mode == .screen ? "mirroring the screen" : mode.title.lowercased()
     }
 
     func updateStatus(_ status: ConnectionStatus) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             switch status {
-            case .connected:
+            case .connected(let mode):
                 self.statusItem.button?.title = "💡"
-                self.statusMenuItem.title = "Status: controller connected, capturing"
+                self.statusMenuItem.title = "Status: connected, \(Self.describe(mode))"
             case .disconnected:
                 self.statusItem.button?.title = "🌑"
-                self.statusMenuItem.title = "Status: controller not connected, capture paused"
-            case .dryRun:
+                self.statusMenuItem.title = "Status: controller not connected"
+            case .dryRun(let mode):
                 self.statusItem.button?.title = "🧪"
-                self.statusMenuItem.title = "Status: dry run (--dry-run), serial port not used"
+                self.statusMenuItem.title = "Status: dry run, \(Self.describe(mode))"
             }
         }
     }

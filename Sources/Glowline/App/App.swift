@@ -116,10 +116,12 @@ func runApp() async throws -> AppRuntime {
         letterboxThreshold: config.letterboxThreshold
     )
     let frameSettings = LiveFrameSettings(colorOrder: config.colorOrder, fixedAdaHeader: config.fixedAdaHeader)
+    let effectSettings = LiveEffectSettings(parameters: config.effectParameters)
 
     let settingsSavePath =
         resolvedConfigPath ?? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.config/glowline/config.json"
-    let settingsStore = await SettingsStore(config: config, configPath: settingsSavePath, averager: averager, frameSettings: frameSettings)
+    let settingsStore = await SettingsStore(
+        config: config, configPath: settingsSavePath, averager: averager, frameSettings: frameSettings, effectSettings: effectSettings)
 
     let menuBarController = MenuBarController(settingsStore: settingsStore)
 
@@ -128,12 +130,25 @@ func runApp() async throws -> AppRuntime {
         serialSupervisor = SerialSupervisor(configuredPath: config.serialPort, baudRate: config.baudRate)
     } else {
         print("Dry run: \(zoneLayout.totalCount) zones, printing Adalight frames instead of writing to serial.")
-        menuBarController.updateStatus(.dryRun)
     }
 
     let lastFrameBox = LastFrameBox()
     let supervisor = CaptureSupervisor(
         config: config, averager: averager, serial: serialSupervisor, lastFrameBox: lastFrameBox, frameSettings: frameSettings)
+    let effectPlayer = EffectPlayer(
+        ledCount: zoneLayout.totalCount, settings: effectSettings, frameSettings: frameSettings, lastFrameBox: lastFrameBox,
+        serial: serialSupervisor)
+    let lighting = LightingController(capture: supervisor, effects: effectPlayer, lastFrameBox: lastFrameBox, mode: config.mode)
+    lighting.onStateChange = { connected, mode in
+        if dryRun {
+            menuBarController.updateStatus(.dryRun(mode))
+        } else {
+            menuBarController.updateStatus(connected ? .connected(mode) : .disconnected)
+        }
+    }
+    await MainActor.run {
+        settingsStore.onLightingModeChange = { mode in lighting.setMode(mode) }
+    }
 
     signal(SIGINT) { _ in exit(0) }
 
@@ -149,12 +164,7 @@ func runApp() async throws -> AppRuntime {
 
     if let serialSupervisor {
         serialSupervisor.onConnectionChange = { connected in
-            if connected {
-                supervisor.start()
-            } else {
-                supervisor.stop()
-            }
-            menuBarController.updateStatus(connected ? .connected : .disconnected)
+            lighting.setConnected(connected)
         }
 
         Task {
@@ -168,8 +178,8 @@ func runApp() async throws -> AppRuntime {
 
         serialSupervisor.reconnect()
     } else {
-        supervisor.start()
+        lighting.setConnected(true)
     }
 
-    return AppRuntime(menuBar: menuBarController, captureSupervisor: supervisor, serialSupervisor: serialSupervisor)
+    return AppRuntime(menuBar: menuBarController, lighting: lighting, serialSupervisor: serialSupervisor)
 }

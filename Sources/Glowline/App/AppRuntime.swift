@@ -2,12 +2,12 @@ import Foundation
 
 final class AppRuntime {
     let menuBar: MenuBarController
-    let captureSupervisor: CaptureSupervisor
+    let lighting: LightingController
     let serialSupervisor: SerialSupervisor?
 
-    init(menuBar: MenuBarController, captureSupervisor: CaptureSupervisor, serialSupervisor: SerialSupervisor?) {
+    init(menuBar: MenuBarController, lighting: LightingController, serialSupervisor: SerialSupervisor?) {
         self.menuBar = menuBar
-        self.captureSupervisor = captureSupervisor
+        self.lighting = lighting
         self.serialSupervisor = serialSupervisor
     }
 }

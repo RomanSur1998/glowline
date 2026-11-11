@@ -19,6 +19,12 @@ Glowline is the opposite: a small native Swift app with no dependencies. It live
 
 ## Features
 
+- **Lighting modes**, switchable from the menu bar or the settings window:
+  - **Screen sync**: the strip follows the edges of the screen;
+  - **Solid color** and **Gradient** (two colors, static);
+  - **Rainbow** and **Breathing** animations with adjustable speed.
+
+  In effect modes screen capture is stopped, so the GPU and capture pipeline stay idle.
 - **Real-time screen mirroring**: captures a display with ScreenCaptureKit (up to 60 fps, 30 by default) and maps its edges onto the strip.
 - **GPU color averaging**: one Metal compute pass reduces every LED zone to a single color, and only one value per zone is read back to the CPU.
 - **Letterbox detection**: black bars in movies are detected and skipped, so the top and bottom LEDs follow the picture rather than the bars.
@@ -118,6 +124,9 @@ Settings are stored in `~/.config/glowline/config.json`. A different file can be
 | `colorOrder` | `RGB` | Byte order on the wire (`RGB`, `GRB`, `BGR`, …) |
 | `fixedAdaHeader` | `false` | Skydimo header format (see below) |
 | `letterboxDetection` / `letterboxThreshold` | `true` / `0.06` | Black-bar detection |
+| `mode` | `screen` | `screen`, `solid`, `gradient`, `rainbow` or `breathing` |
+| `color` / `secondColor` | `#FF7A1A` / `#2B6CFF` | Effect colors (`secondColor` is the gradient's center) |
+| `effectSpeed` | `1.0` | Animation speed multiplier for `rainbow` and `breathing` |
 </details>
 
 ## How it works
@@ -164,6 +173,7 @@ At 115200 baud, a 156-LED frame (474 bytes) takes about 45 ms on the wire, so th
 Sources/Glowline/
 ├── App/          entry point, CLI parsing, diagnostics
 ├── Capture/      ScreenCaptureKit stream + restart supervisor
+├── Effects/      lighting modes, effect renderer and player
 ├── Processing/   Metal zone averager and shaders
 ├── Protocol/     Adalight frame encoding, zone layout
 ├── Serial/       serial port, device discovery, reconnect supervisor

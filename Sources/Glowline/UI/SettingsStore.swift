@@ -24,6 +24,13 @@ final class SettingsStore: ObservableObject {
     @Published var letterboxDetection: Bool
     @Published var letterboxThreshold: Double
 
+    @Published var lightingMode: LightingMode
+    @Published var primaryColor: LEDColor
+    @Published var secondaryColor: LEDColor
+    @Published var effectSpeed: Double
+
+    var onLightingModeChange: ((LightingMode) -> Void)?
+
     var restartRequired: Bool {
         AppConfig.restartRequiredFields(current: currentConfig, runningConfig: restartOnlySnapshot)
     }
@@ -33,14 +40,21 @@ final class SettingsStore: ObservableObject {
     let configPath: String
     private let averager: MetalZoneAverager
     private let frameSettings: LiveFrameSettings
+    private let effectSettings: LiveEffectSettings
+    private var appliedMode: LightingMode
     private let restartOnlySnapshot: AppConfig
     private var cancellables: Set<AnyCancellable> = []
     private var isApplyingExternally = false
 
-    init(config: AppConfig, configPath: String, averager: MetalZoneAverager, frameSettings: LiveFrameSettings) {
+    init(
+        config: AppConfig, configPath: String, averager: MetalZoneAverager, frameSettings: LiveFrameSettings,
+        effectSettings: LiveEffectSettings
+    ) {
         self.configPath = configPath
         self.averager = averager
         self.frameSettings = frameSettings
+        self.effectSettings = effectSettings
+        self.appliedMode = config.mode
         self.restartOnlySnapshot = config
 
         displayIndex = config.displayIndex
@@ -61,6 +75,10 @@ final class SettingsStore: ObservableObject {
         fixedAdaHeader = config.fixedAdaHeader
         letterboxDetection = config.letterboxDetection
         letterboxThreshold = config.letterboxThreshold
+        lightingMode = config.mode
+        primaryColor = config.color
+        secondaryColor = config.secondColor
+        effectSpeed = config.effectSpeed
 
         observeChanges()
         refreshDeviceLists()
@@ -86,6 +104,10 @@ final class SettingsStore: ObservableObject {
         c.fixedAdaHeader = fixedAdaHeader
         c.letterboxDetection = letterboxDetection
         c.letterboxThreshold = letterboxThreshold
+        c.mode = lightingMode
+        c.color = primaryColor
+        c.secondColor = secondaryColor
+        c.effectSpeed = effectSpeed
         return c
     }
 
@@ -106,6 +128,11 @@ final class SettingsStore: ObservableObject {
         averager.letterboxThreshold = Float(letterboxThreshold)
         frameSettings.colorOrder = colorOrder
         frameSettings.fixedAdaHeader = fixedAdaHeader
+        effectSettings.parameters = currentConfig.effectParameters
+        if lightingMode != appliedMode {
+            appliedMode = lightingMode
+            onLightingModeChange?(lightingMode)
+        }
 
         do {
             try currentConfig.save(to: configPath)

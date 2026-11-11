@@ -49,12 +49,16 @@ struct AppConfig: Codable {
     var fixedAdaHeader: Bool = false
     var letterboxDetection: Bool = true
     var letterboxThreshold: Double = 0.06
+    var mode: LightingMode = .screen
+    var color: LEDColor = LEDColor(r: 0xFF, g: 0x7A, b: 0x1A)
+    var secondColor: LEDColor = LEDColor(r: 0x2B, g: 0x6C, b: 0xFF)
+    var effectSpeed: Double = 1.0
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case displayIndex, captureWidth, targetFPS, serialPort, baudRate, zones, gamma, brightness, colorOrder, fixedAdaHeader,
-            letterboxDetection, letterboxThreshold
+            letterboxDetection, letterboxThreshold, mode, color, secondColor, effectSpeed
     }
 
     init(from decoder: Decoder) throws {
@@ -80,6 +84,31 @@ struct AppConfig: Codable {
         fixedAdaHeader = try c.decodeIfPresent(Bool.self, forKey: .fixedAdaHeader) ?? false
         letterboxDetection = try c.decodeIfPresent(Bool.self, forKey: .letterboxDetection) ?? true
         letterboxThreshold = try c.decodeIfPresent(Double.self, forKey: .letterboxThreshold) ?? 0.06
+        if let rawMode = try c.decodeIfPresent(String.self, forKey: .mode) {
+            if let parsed = LightingMode(rawValue: rawMode) {
+                mode = parsed
+            } else {
+                logError("Unknown mode \"\(rawMode)\" -- using screen.")
+                mode = .screen
+            }
+        }
+        color = Self.decodeColor(c, .color) ?? color
+        secondColor = Self.decodeColor(c, .secondColor) ?? secondColor
+        effectSpeed = try c.decodeIfPresent(Double.self, forKey: .effectSpeed) ?? 1.0
+    }
+
+    private static func decodeColor(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> LEDColor? {
+        guard let raw = try? c.decodeIfPresent(String.self, forKey: key) else { return nil }
+        guard let color = LEDColor(hex: raw) else {
+            logError("Invalid \(key.stringValue) \"\(raw)\" -- expected a color like \"#FF8800\".")
+            return nil
+        }
+        return color
+    }
+
+    var effectParameters: EffectParameters {
+        EffectParameters(
+            mode: mode, primaryColor: color, secondaryColor: secondColor, speed: effectSpeed, brightness: brightness, gamma: gamma)
     }
 
     static func load(path: String?) -> AppConfig {

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 private let commonBaudRates = [115_200, 230_400, 460_800, 500_000, 921_600, 1_000_000, 2_000_000]
@@ -16,6 +17,23 @@ struct SettingsView: View {
                         Spacer()
                         Button("Restart now", action: onRestart)
                     }
+                }
+            }
+
+            Section("Mode") {
+                Picker("Mode", selection: $store.lightingMode) {
+                    ForEach(LightingMode.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                if store.lightingMode.usesPrimaryColor {
+                    ColorPicker(
+                        store.lightingMode.usesSecondaryColor ? "Edge color" : "Color", selection: colorBinding(\.primaryColor),
+                        supportsOpacity: false)
+                }
+                if store.lightingMode.usesSecondaryColor {
+                    ColorPicker("Center color", selection: colorBinding(\.secondaryColor), supportsOpacity: false)
+                }
+                if store.lightingMode.isAnimated {
+                    LabeledSlider(title: "Speed", value: $store.effectSpeed, range: 0.2...3.0, step: 0.1, format: "%.1f×")
                 }
             }
 
@@ -76,7 +94,21 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 560)
+        .frame(width: 460, height: 620)
+    }
+
+    private func colorBinding(_ keyPath: ReferenceWritableKeyPath<SettingsStore, LEDColor>) -> Binding<Color> {
+        Binding(
+            get: {
+                let c = store[keyPath: keyPath]
+                return Color(.sRGB, red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+            },
+            set: { newValue in
+                guard let srgb = NSColor(newValue).usingColorSpace(.sRGB) else { return }
+                func byte(_ v: CGFloat) -> UInt8 { UInt8((min(max(v, 0), 1) * 255).rounded()) }
+                store[keyPath: keyPath] = LEDColor(r: byte(srgb.redComponent), g: byte(srgb.greenComponent), b: byte(srgb.blueComponent))
+            }
+        )
     }
 }
 
