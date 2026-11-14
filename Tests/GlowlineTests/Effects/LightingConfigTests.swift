@@ -20,6 +20,14 @@ final class LightingConfigTests: XCTestCase {
         XCTAssertNil(LEDColor(hex: ""))
     }
 
+    func testTextInputAcceptsHexAndRGBTriples() {
+        XCTAssertEqual(LEDColor(text: " #FF7A1A "), LEDColor(r: 255, g: 122, b: 26))
+        XCTAssertEqual(LEDColor(text: "255, 122,26"), LEDColor(r: 255, g: 122, b: 26))
+        XCTAssertNil(LEDColor(text: "256,0,0"))
+        XCTAssertNil(LEDColor(text: "10,20"))
+        XCTAssertNil(LEDColor(text: "10,,20"))
+    }
+
     func testMissingFieldsUseDefaults() throws {
         let config = try decode("{}")
         XCTAssertEqual(config.mode, .screen)

@@ -25,12 +25,10 @@ struct SettingsView: View {
                     ForEach(LightingMode.allCases, id: \.self) { Text($0.title).tag($0) }
                 }
                 if store.lightingMode.usesPrimaryColor {
-                    ColorPicker(
-                        store.lightingMode.usesSecondaryColor ? "Edge color" : "Color", selection: colorBinding(\.primaryColor),
-                        supportsOpacity: false)
+                    LEDColorField(title: store.lightingMode.usesSecondaryColor ? "Edge color" : "Color", color: $store.primaryColor)
                 }
                 if store.lightingMode.usesSecondaryColor {
-                    ColorPicker("Center color", selection: colorBinding(\.secondaryColor), supportsOpacity: false)
+                    LEDColorField(title: "Center color", color: $store.secondaryColor)
                 }
                 if store.lightingMode.isAnimated {
                     LabeledSlider(title: "Speed", value: $store.effectSpeed, range: 0.2...3.0, step: 0.1, format: "%.1f×")
@@ -96,19 +94,79 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 460, height: 620)
     }
+}
 
-    private func colorBinding(_ keyPath: ReferenceWritableKeyPath<SettingsStore, LEDColor>) -> Binding<Color> {
+private let colorPresets: [LEDColor] = [
+    LEDColor(r: 255, g: 255, b: 255),
+    LEDColor(r: 255, g: 180, b: 100),
+    LEDColor(r: 255, g: 0, b: 0),
+    LEDColor(r: 255, g: 122, b: 26),
+    LEDColor(r: 255, g: 220, b: 0),
+    LEDColor(r: 0, g: 255, b: 0),
+    LEDColor(r: 0, g: 220, b: 255),
+    LEDColor(r: 0, g: 60, b: 255),
+    LEDColor(r: 150, g: 0, b: 255),
+    LEDColor(r: 255, g: 0, b: 150),
+]
+
+private struct LEDColorField: View {
+    let title: String
+    @Binding var color: LEDColor
+    @State private var text = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title)
+                Spacer()
+                TextField("#RRGGBB or r,g,b", text: $text)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.body.monospaced())
+                    .frame(width: 130)
+                    .foregroundStyle(LEDColor(text: text) == nil ? Color.red : Color.primary)
+                    .onSubmit { text = color.hex }
+                ColorPicker("", selection: pickerBinding, supportsOpacity: false)
+                    .labelsHidden()
+            }
+            HStack(spacing: 6) {
+                ForEach(colorPresets, id: \.hex) { preset in
+                    Button {
+                        color = preset
+                    } label: {
+                        Circle()
+                            .fill(swiftUIColor(preset))
+                            .frame(width: 18, height: 18)
+                            .overlay(
+                                Circle().stroke(
+                                    preset == color ? Color.accentColor : Color.secondary.opacity(0.4), lineWidth: preset == color ? 2 : 1))
+                    }
+                    .buttonStyle(.plain)
+                    .help(preset.hex)
+                }
+            }
+        }
+        .onAppear { text = color.hex }
+        .onChange(of: color) { newColor in
+            if LEDColor(text: text) != newColor { text = newColor.hex }
+        }
+        .onChange(of: text) { newText in
+            if let parsed = LEDColor(text: newText), parsed != color { color = parsed }
+        }
+    }
+
+    private var pickerBinding: Binding<Color> {
         Binding(
-            get: {
-                let c = store[keyPath: keyPath]
-                return Color(.sRGB, red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
-            },
+            get: { swiftUIColor(color) },
             set: { newValue in
                 guard let srgb = NSColor(newValue).usingColorSpace(.sRGB) else { return }
                 func byte(_ v: CGFloat) -> UInt8 { UInt8((min(max(v, 0), 1) * 255).rounded()) }
-                store[keyPath: keyPath] = LEDColor(r: byte(srgb.redComponent), g: byte(srgb.greenComponent), b: byte(srgb.blueComponent))
+                color = LEDColor(r: byte(srgb.redComponent), g: byte(srgb.greenComponent), b: byte(srgb.blueComponent))
             }
         )
+    }
+
+    private func swiftUIColor(_ c: LEDColor) -> Color {
+        Color(.sRGB, red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
     }
 }
 
