@@ -1,15 +1,11 @@
 import AppKit
 import SwiftUI
 
-enum ConnectionStatus {
-    case connected(LightingMode)
-    case disconnected
-    case dryRun(LightingMode)
-}
-
 final class MenuBarController: NSObject, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private var statusMenuItem: NSMenuItem!
+    private var powerItem: NSMenuItem!
+    private var profilesMenu: NSMenu!
     private var modeItems: [LightingMode: NSMenuItem] = [:]
     private var settingsWindow: NSWindow?
     private let settingsStore: SettingsStore
@@ -33,6 +29,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
         let menu = NSMenu()
         menu.addItem(statusMenuItem)
+
+        powerItem = NSMenuItem(title: "Turn Off", action: #selector(togglePower), keyEquivalent: "l")
+        powerItem.keyEquivalentModifierMask = [.command, .option]
+        powerItem.target = self
+        menu.addItem(powerItem)
         menu.addItem(.separator())
 
         for mode in LightingMode.allCases {
@@ -43,6 +44,11 @@ final class MenuBarController: NSObject, NSMenuDelegate {
             menu.addItem(item)
         }
         menu.addItem(.separator())
+
+        let profilesItem = NSMenuItem(title: "Profiles", action: nil, keyEquivalent: "")
+        profilesMenu = NSMenu()
+        profilesItem.submenu = profilesMenu
+        menu.addItem(profilesItem)
 
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(openSettings), keyEquivalent: ",")
         settingsItem.target = self
@@ -65,44 +71,60 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
-        let current = MainActor.assumeIsolated { settingsStore.lightingMode }
-        for (mode, item) in modeItems {
-            item.state = mode == current ? .on : .off
+        let (mode, enabled, profiles, active) = MainActor.assumeIsolated {
+            (settingsStore.lightingMode, settingsStore.isEnabled, settingsStore.profiles, settingsStore.activeProfileName())
         }
+        for (itemMode, item) in modeItems {
+            item.state = itemMode == mode ? .on : .off
+        }
+        powerItem.title = enabled ? "Turn Off" : "Turn On"
+        profilesMenu.removeAllItems()
+        if profiles.isEmpty {
+            let empty = NSMenuItem(title: "No profiles yet", action: nil, keyEquivalent: "")
+            empty.isEnabled = false
+            profilesMenu.addItem(empty)
+        }
+        for profile in profiles {
+            let item = NSMenuItem(title: profile.name, action: #selector(selectProfile(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = profile.name
+            item.state = profile.name == active ? .on : .off
+            profilesMenu.addItem(item)
+        }
+    }
+
+    @objc private func togglePower() {
+        MainActor.assumeIsolated { settingsStore.toggleEnabled() }
     }
 
     @objc private func selectMode(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let mode = LightingMode(rawValue: raw) else { return }
-        MainActor.assumeIsolated { settingsStore.lightingMode = mode }
+        MainActor.assumeIsolated {
+            settingsStore.lightingMode = mode
+            settingsStore.isEnabled = true
+        }
     }
 
-    private static func describe(_ mode: LightingMode) -> String {
-        mode == .screen ? "mirroring the screen" : mode.title.lowercased()
+    @objc private func selectProfile(_ sender: NSMenuItem) {
+        guard let name = sender.representedObject as? String else { return }
+        MainActor.assumeIsolated {
+            if let profile = settingsStore.profiles.first(where: { $0.name == name }) {
+                settingsStore.apply(profile)
+            }
+        }
     }
 
-    func updateStatus(_ status: ConnectionStatus) {
+    func updateStatus(_ state: LightingState, dryRun: Bool) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let line: String
-            let connected: Bool
-            switch status {
-            case .connected(let mode):
-                line = "Connected · \(Self.describe(mode))"
-                connected = true
-                self.statusItem.button?.image = StatusIcon.image(.lit)
-            case .disconnected:
-                line = "Controller not connected"
-                connected = false
-                self.statusItem.button?.image = StatusIcon.image(.off)
-            case .dryRun(let mode):
-                line = "Dry run · \(Self.describe(mode))"
-                connected = true
-                self.statusItem.button?.image = StatusIcon.image(.half)
-            }
+            let line = dryRun ? "Dry run · \(state.statusLine)" : state.statusLine
+            let style: StatusIcon.Style = !state.connected ? .off : (state.isLit ? .lit : .half)
+            self.statusItem.button?.image = StatusIcon.image(style)
             self.statusMenuItem.title = "Status: \(line)"
             MainActor.assumeIsolated {
                 self.settingsStore.statusLine = line
-                self.settingsStore.isConnected = connected
+                self.settingsStore.isConnected = state.connected
+                self.settingsStore.isLit = state.isLit
             }
         }
     }

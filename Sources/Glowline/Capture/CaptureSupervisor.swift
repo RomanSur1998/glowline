@@ -21,24 +21,20 @@ final class LastFrameBox {
 final class CaptureSupervisor: @unchecked Sendable {
     private let config: AppConfig
     private let averager: MetalZoneAverager
-    private let serial: SerialSupervisor?
-    private let lastFrameBox: LastFrameBox
-    private let frameSettings: LiveFrameSettings
     private let liveColors: LiveColors
+    private let deliver: ([(UInt8, UInt8, UInt8)]) -> Void
     private let resource: RetryingResource
     private var frameCounter = 0
     @Locked private var currentCapture: ScreenCapture? = nil
 
     init(
-        config: AppConfig, averager: MetalZoneAverager, serial: SerialSupervisor?, lastFrameBox: LastFrameBox,
-        frameSettings: LiveFrameSettings, liveColors: LiveColors
+        config: AppConfig, averager: MetalZoneAverager, liveColors: LiveColors,
+        deliver: @escaping ([(UInt8, UInt8, UInt8)]) -> Void
     ) {
         self.config = config
         self.averager = averager
-        self.serial = serial
-        self.lastFrameBox = lastFrameBox
-        self.frameSettings = frameSettings
         self.liveColors = liveColors
+        self.deliver = deliver
         var attempt: (() async throws -> Void)!
         self.resource = RetryingResource(backoffNanoseconds: 3_000_000_000) { try await attempt() }
         attempt = { [weak self] in try await self?.beginCapture() }
@@ -89,14 +85,12 @@ final class CaptureSupervisor: @unchecked Sendable {
     private func handleFrame(_ pixelBuffer: CVPixelBuffer) {
         guard let colors = averager.averageZoneColors(pixelBuffer: pixelBuffer) else { return }
         liveColors.colors = colors
-        let frame = AdalightFrame.build(colors: colors, colorOrder: frameSettings.colorOrder, fixedHeader: frameSettings.fixedAdaHeader)
         frameCounter += 1
         if frameCounter % 60 == 1 {
             let preview = colors.prefix(4).map { "(\($0.0),\($0.1),\($0.2))" }.joined(separator: " ")
-            print("frame #\(frameCounter): \(frame.count) bytes, zones[0..<4]=\(preview)")
+            print("frame #\(frameCounter): \(colors.count) zones, zones[0..<4]=\(preview)")
         }
-        lastFrameBox.set(frame)
-        serial?.send(frame)
+        deliver(colors)
     }
 
     private func handleStop(error: Error?) {

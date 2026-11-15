@@ -117,13 +117,14 @@ func runApp() async throws -> AppRuntime {
     )
     let frameSettings = LiveFrameSettings(colorOrder: config.colorOrder, fixedAdaHeader: config.fixedAdaHeader)
     let effectSettings = LiveEffectSettings(parameters: config.effectParameters)
+    let outputSettings = LiveOutputSettings(config: config)
     let liveColors = LiveColors()
 
     let settingsSavePath =
         resolvedConfigPath ?? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.config/glowline/config.json"
     let settingsStore = await SettingsStore(
         config: config, configPath: settingsSavePath, averager: averager, frameSettings: frameSettings, effectSettings: effectSettings,
-        liveColors: liveColors)
+        outputSettings: outputSettings, liveColors: liveColors)
 
     let menuBarController = MenuBarController(settingsStore: settingsStore)
 
@@ -131,39 +132,43 @@ func runApp() async throws -> AppRuntime {
     if !dryRun {
         serialSupervisor = SerialSupervisor(configuredPath: config.serialPort, baudRate: config.baudRate)
     } else {
-        print("Dry run: \(zoneLayout.totalCount) zones, printing Adalight frames instead of writing to serial.")
+        print("Dry run: \(zoneLayout.totalCount) zones, serial port not used.")
     }
 
     let lastFrameBox = LastFrameBox()
-    let supervisor = CaptureSupervisor(
-        config: config, averager: averager, serial: serialSupervisor, lastFrameBox: lastFrameBox, frameSettings: frameSettings,
-        liveColors: liveColors)
-    let effectPlayer = EffectPlayer(
-        ledCount: zoneLayout.totalCount, settings: effectSettings, frameSettings: frameSettings, lastFrameBox: lastFrameBox,
+    let sink = FrameSink(
+        ledCount: zoneLayout.totalCount, frameSettings: frameSettings, output: outputSettings, lastFrameBox: lastFrameBox,
         serial: serialSupervisor)
-    let lighting = LightingController(capture: supervisor, effects: effectPlayer, lastFrameBox: lastFrameBox, mode: config.mode)
-    lighting.onStateChange = { connected, mode in
-        if dryRun {
-            menuBarController.updateStatus(.dryRun(mode))
-        } else {
-            menuBarController.updateStatus(connected ? .connected(mode) : .disconnected)
-        }
+    let smoother = ColorSmoother(timeConstant: { outputSettings.smoothing }) { colors in
+        sink.send(colors, forScreen: true)
     }
-    await MainActor.run {
-        settingsStore.onLightingModeChange = { mode in lighting.setMode(mode) }
+    let supervisor = CaptureSupervisor(config: config, averager: averager, liveColors: liveColors) { colors in
+        smoother.push(colors)
+    }
+    let effectPlayer = EffectPlayer(settings: effectSettings, sink: sink)
+    let lighting = LightingController(
+        capture: supervisor, effects: effectPlayer, smoother: smoother, sink: sink, mode: config.mode, enabled: config.enabled)
+    lighting.onStateChange = { state in
+        menuBarController.updateStatus(state, dryRun: dryRun)
     }
 
-    signal(SIGINT) { _ in exit(0) }
-
-    let workspaceNC = NSWorkspace.shared.notificationCenter
-    workspaceNC.addObserver(forName: NSWorkspace.willSleepNotification, object: nil, queue: .main) { _ in
-        print("System going to sleep -- capture and the LED strip will resume automatically on wake.")
-    }
-    workspaceNC.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { _ in
-        print("System woke up -- resuming capture and reconnecting the serial port.")
+    let powerMonitor = PowerEventMonitor(lighting: lighting, options: { outputSettings.autoOff })
+    powerMonitor.onWake = {
         supervisor.restartIfNeeded()
         serialSupervisor?.reconnect()
     }
+    powerMonitor.start()
+
+    let hotKey = await MainActor.run {
+        settingsStore.onLightingModeChange = { mode in lighting.setMode(mode) }
+        settingsStore.onEnabledChange = { enabled in lighting.setEnabled(enabled) }
+        settingsStore.onApplied = { powerMonitor.reevaluate() }
+        let hotKey = GlobalHotKey { MainActor.assumeIsolated { settingsStore.toggleEnabled() } }
+        hotKey.register()
+        return hotKey
+    }
+
+    signal(SIGINT) { _ in exit(0) }
 
     if let serialSupervisor {
         serialSupervisor.onConnectionChange = { connected in
@@ -184,5 +189,6 @@ func runApp() async throws -> AppRuntime {
         lighting.setConnected(true)
     }
 
-    return AppRuntime(menuBar: menuBarController, lighting: lighting, serialSupervisor: serialSupervisor)
+    return AppRuntime(
+        menuBar: menuBarController, lighting: lighting, serialSupervisor: serialSupervisor, powerMonitor: powerMonitor, hotKey: hotKey)
 }

@@ -1,58 +1,108 @@
 import Foundation
 
+enum SuspendReason: String, CaseIterable {
+    case macAsleep = "Mac asleep"
+    case displayAsleep = "display asleep"
+    case screenLocked = "screen locked"
+}
+
+struct LightingState: Equatable {
+    var connected = false
+    var mode: LightingMode
+    var enabled: Bool
+    var suspensions: Set<SuspendReason> = []
+
+    var isLit: Bool { connected && enabled && suspensions.isEmpty }
+
+    var statusLine: String {
+        if !connected { return "Controller not connected" }
+        if !enabled { return "Off" }
+        if let reason = SuspendReason.allCases.first(where: suspensions.contains) { return "Paused · \(reason.rawValue)" }
+        return mode == .screen ? "On · screen sync" : "On · \(mode.title.lowercased())"
+    }
+}
+
 final class LightingController: @unchecked Sendable {
     private let capture: CaptureSupervisor
     private let effects: EffectPlayer
-    private let lastFrameBox: LastFrameBox
+    private let smoother: ColorSmoother
+    private let sink: FrameSink
     private let lock = NSLock()
-    private var connected = false
-    private var mode: LightingMode
-    private var appliedState: (connected: Bool, mode: LightingMode)?
+    private var state: LightingState
+    private var applied: (lit: Bool, screen: Bool)?
 
-    var onStateChange: ((Bool, LightingMode) -> Void)?
+    var onStateChange: ((LightingState) -> Void)?
 
-    init(capture: CaptureSupervisor, effects: EffectPlayer, lastFrameBox: LastFrameBox, mode: LightingMode) {
+    init(capture: CaptureSupervisor, effects: EffectPlayer, smoother: ColorSmoother, sink: FrameSink, mode: LightingMode, enabled: Bool) {
         self.capture = capture
         self.effects = effects
-        self.lastFrameBox = lastFrameBox
-        self.mode = mode
+        self.smoother = smoother
+        self.sink = sink
+        self.state = LightingState(mode: mode, enabled: enabled)
+    }
+
+    var currentState: LightingState {
+        lock.lock()
+        defer { lock.unlock() }
+        return state
     }
 
     func setConnected(_ connected: Bool) {
-        lock.lock()
-        self.connected = connected
-        apply()
-        lock.unlock()
+        update { $0.connected = connected }
     }
 
     func setMode(_ mode: LightingMode) {
-        lock.lock()
-        self.mode = mode
-        apply()
-        lock.unlock()
+        update { $0.mode = mode }
     }
 
-    private func apply() {
-        let screenMode = mode == .screen
-        if let applied = appliedState, applied.connected == connected, (applied.mode == .screen) == screenMode {
-            appliedState = (connected, mode)
-            onStateChange?(connected, mode)
-            return
-        }
-        appliedState = (connected, mode)
+    func setEnabled(_ enabled: Bool) {
+        update { $0.enabled = enabled }
+    }
 
-        if connected && screenMode {
+    func setSuspended(_ reason: SuspendReason, _ suspended: Bool) {
+        update {
+            if suspended {
+                $0.suspensions.insert(reason)
+            } else {
+                $0.suspensions.remove(reason)
+            }
+        }
+    }
+
+    private func update(_ change: (inout LightingState) -> Void) {
+        lock.lock()
+        change(&state)
+        let snapshot = state
+        apply(snapshot)
+        lock.unlock()
+        onStateChange?(snapshot)
+    }
+
+    private func apply(_ s: LightingState) {
+        let target = (lit: s.isLit, screen: s.mode == .screen)
+        if let applied, applied == target { return }
+        let wasLit = applied?.lit ?? false
+        applied = target
+
+        if target.lit && target.screen {
             effects.stop()
-            lastFrameBox.clear()
+            sink.clear()
             capture.start()
-        } else if connected {
+        } else if target.lit {
             capture.stop()
-            lastFrameBox.clear()
+            smoother.reset()
+            sink.clear()
             effects.start()
         } else {
             effects.stop()
             capture.stop()
+            smoother.reset()
+            if s.connected {
+                sink.sendBlack()
+                if wasLit { print("LED strip off (\(s.statusLine)).") }
+            } else {
+                sink.clear()
+            }
         }
-        onStateChange?(connected, mode)
     }
 }

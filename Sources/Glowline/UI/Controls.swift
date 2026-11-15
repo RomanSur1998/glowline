@@ -196,13 +196,14 @@ struct CountStepper: View {
     let title: String
     @Binding var value: Double
     let range: ClosedRange<Double>
+    var format: (Int) -> String = { "\($0)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             FieldLabel(title)
             HStack(spacing: 10) {
                 stepButton("minus", delta: -1)
-                Text("\(Int(value))")
+                Text(format(Int(value)))
                     .font(Theme.large)
                     .monospacedDigit()
                     .foregroundStyle(Theme.text)
@@ -213,7 +214,7 @@ struct CountStepper: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(title)
-        .accessibilityValue("\(Int(value))")
+        .accessibilityValue(format(Int(value)))
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: change(by: 1)
@@ -264,5 +265,40 @@ struct CornerPicker: View {
             }
             .frame(width: 84, height: 56)
         }
+    }
+}
+
+struct PowerSwitch: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button {
+            isOn.toggle()
+        } label: {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(isOn ? Theme.accent : Theme.dim)
+                    .frame(width: 8, height: 8)
+                Text(isOn ? "ON" : "OFF")
+                    .font(Theme.label)
+                    .tracking(1.4)
+            }
+            .foregroundStyle(isOn ? Color.black : Theme.text)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(isOn ? Theme.text : Color.clear))
+            .overlay(Capsule().stroke(isOn ? Theme.text : Theme.dotOff, lineWidth: 1.5))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .help("Turn the strip on or off (\(GlobalHotKey.displayString))")
+        .accessibilityLabel("Power")
+        .accessibilityValue(isOn ? "On" : "Off")
+    }
+}
+
+extension Binding where Value == Int {
+    var asDouble: Binding<Double> {
+        Binding<Double>(get: { Double(wrappedValue) }, set: { wrappedValue = Int($0) })
     }
 }

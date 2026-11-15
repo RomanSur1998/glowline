@@ -30,11 +30,15 @@ struct SettingsContent: View {
                 restartBanner
             }
             StripPreview(store: store)
+                .opacity(store.isEnabled ? 1 : 0.35)
+            ProfilesSection(store: store)
             modeSection
             outputSection
             if store.lightingMode == .screen {
                 screenSection
             }
+            autoSection
+            systemSection
             connectionSection
             zonesSection
             Text(store.configPath)
@@ -50,18 +54,21 @@ struct SettingsContent: View {
 
     private var header: some View {
         HStack(alignment: .center) {
-            DotMatrixText(text: "GLOWLINE", dot: 3.5, spacing: 1.5)
-            Spacer()
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(store.isConnected ? Theme.accent : Theme.dotOff)
-                    .frame(width: 7, height: 7)
-                Text(store.statusLine.uppercased())
-                    .font(Theme.label)
-                    .tracking(1)
-                    .foregroundStyle(Theme.dim)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 12) {
+                DotMatrixText(text: "GLOWLINE", dot: 3.5, spacing: 1.5)
+                HStack(spacing: 7) {
+                    Circle()
+                        .fill(store.isLit ? Theme.accent : (store.isConnected ? Theme.dim : Theme.dotOff))
+                        .frame(width: 7, height: 7)
+                    Text(store.statusLine.uppercased())
+                        .font(Theme.label)
+                        .tracking(1)
+                        .foregroundStyle(Theme.dim)
+                        .lineLimit(1)
+                }
             }
+            Spacer()
+            PowerSwitch(isOn: $store.isEnabled)
         }
     }
 
@@ -105,6 +112,52 @@ struct SettingsContent: View {
         PanelSection(title: "OUTPUT") {
             DotSlider(title: "Brightness", value: $store.brightness, range: 0.2...2.0, step: 0.05, format: "%.2f")
             DotSlider(title: "Gamma", value: $store.gamma, range: 0.5...3.0, step: 0.05, format: "%.2f")
+            DotSlider(title: "White balance · R", value: $store.whiteBalance.r, range: 0.3...1.0, step: 0.01, format: "%.2f")
+            DotSlider(title: "White balance · G", value: $store.whiteBalance.g, range: 0.3...1.0, step: 0.01, format: "%.2f")
+            DotSlider(title: "White balance · B", value: $store.whiteBalance.b, range: 0.3...1.0, step: 0.01, format: "%.2f")
+            if !store.whiteBalance.isIdentity {
+                HStack {
+                    Spacer()
+                    PillButton(title: "Reset white balance") { store.whiteBalance = ChannelGains() }
+                }
+            }
+        }
+    }
+
+    private var autoSection: some View {
+        PanelSection(title: "AUTO") {
+            DotToggle(title: "Off when display sleeps", isOn: $store.autoOff.whenDisplaySleeps)
+            DotToggle(title: "Off when screen locks", isOn: $store.autoOff.whenScreenLocked)
+            DotToggle(title: "Off when Mac sleeps", isOn: $store.autoOff.whenMacSleeps)
+            DotToggle(title: "Dim at night", isOn: $store.night.enabled)
+            if store.night.enabled {
+                Grid(horizontalSpacing: 12, verticalSpacing: 16) {
+                    GridRow {
+                        CountStepper(title: "From", value: $store.night.startHour.asDouble, range: 0...23) { String(format: "%02d:00", $0) }
+                        CountStepper(title: "Until", value: $store.night.endHour.asDouble, range: 0...23) { String(format: "%02d:00", $0) }
+                    }
+                }
+                DotSlider(title: "Night brightness", value: $store.night.brightness, range: 0.05...1.0, step: 0.05, format: "%.2f")
+            }
+        }
+    }
+
+    private var systemSection: some View {
+        PanelSection(title: "SYSTEM") {
+            DotToggle(
+                title: "Launch at login",
+                isOn: Binding(get: { store.launchAtLogin }, set: { store.setLaunchAtLogin($0) }))
+            if let note = store.launchAtLoginNote {
+                Text(note.uppercased())
+                    .font(Theme.label)
+                    .tracking(0.8)
+                    .foregroundStyle(Theme.accent)
+            }
+            FieldRow(title: "On / off hotkey") {
+                Text(GlobalHotKey.displayString)
+                    .font(Theme.value)
+                    .foregroundStyle(Theme.text)
+            }
         }
     }
 
@@ -115,6 +168,8 @@ struct SettingsContent: View {
                 options: store.availableDisplays.map { (value: $0.index, label: $0.label) })
             DotSlider(title: "Capture width", value: $store.captureWidth, range: 96...960, step: 16, format: "%.0f px")
             DotSlider(title: "Frame rate", value: $store.targetFPS, range: 5...60, step: 1, format: "%.0f fps")
+            DotSlider(title: "Smoothing", value: $store.smoothing, range: 0...1.0, step: 0.05, format: "%.2f s")
+            DotSlider(title: "Saturation", value: $store.saturation, range: 0.5...2.0, step: 0.05, format: "%.2f")
             DotToggle(title: "Skip letterbox bars", isOn: $store.letterboxDetection)
             if store.letterboxDetection {
                 DotSlider(title: "Bar threshold", value: $store.letterboxThreshold, range: 0.01...0.3, step: 0.01, format: "%.2f")
@@ -371,5 +426,76 @@ private struct LEDColorField: View {
 
     private func swiftUIColor(_ c: LEDColor) -> Color {
         Color(.sRGB, red: Double(c.r) / 255, green: Double(c.g) / 255, blue: Double(c.b) / 255)
+    }
+}
+
+private struct ProfilesSection: View {
+    @ObservedObject var store: SettingsStore
+    @State private var isAdding = false
+    @State private var newName = ""
+
+    var body: some View {
+        let active = store.activeProfileName()
+        PanelSection(title: "PROFILES") {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], alignment: .leading, spacing: 8) {
+                ForEach(store.profiles) { profile in
+                    chip(profile.name.uppercased(), selected: profile.name == active) {
+                        store.apply(profile)
+                    }
+                    .contextMenu {
+                        Button("Update with current settings") { store.saveProfile(named: profile.name) }
+                        Button("Delete", role: .destructive) { store.deleteProfile(profile) }
+                    }
+                }
+                chip(isAdding ? "CANCEL" : "+ SAVE", selected: false, dashed: true) {
+                    isAdding.toggle()
+                    newName = ""
+                }
+            }
+            if isAdding {
+                HStack(spacing: 12) {
+                    VStack(spacing: 3) {
+                        TextField("PROFILE NAME", text: $newName)
+                            .textFieldStyle(.plain)
+                            .font(Theme.value)
+                            .foregroundStyle(Theme.text)
+                            .onSubmit(save)
+                        Rectangle().fill(Theme.dotOff).frame(height: 1)
+                    }
+                    PillButton(title: "Save", filled: true, action: save)
+                }
+            }
+            Text("SAVES MODE, COLORS, BRIGHTNESS, SMOOTHING AND SATURATION. RIGHT-CLICK TO UPDATE OR DELETE.")
+                .font(.system(size: 9, weight: .medium, design: .monospaced))
+                .tracking(0.6)
+                .foregroundStyle(Theme.dim.opacity(0.8))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func save() {
+        store.saveProfile(named: newName)
+        newName = ""
+        isAdding = false
+    }
+
+    private func chip(_ title: String, selected: Bool, dashed: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Theme.label)
+                .tracking(1)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .foregroundStyle(selected ? Color.black : Theme.text)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 9)
+                .background(Capsule().fill(selected ? Theme.text : Color.clear))
+                .overlay(
+                    Capsule().stroke(
+                        selected ? Theme.text : Theme.dotOff, style: StrokeStyle(lineWidth: 1.5, dash: dashed ? [3, 3] : []))
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
     }
 }

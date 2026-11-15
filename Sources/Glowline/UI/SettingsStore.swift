@@ -29,10 +29,23 @@ final class SettingsStore: ObservableObject {
     @Published var secondaryColor: LEDColor
     @Published var effectSpeed: Double
 
+    @Published var isEnabled: Bool
+    @Published var smoothing: Double
+    @Published var saturation: Double
+    @Published var whiteBalance: ChannelGains
+    @Published var night: NightSchedule
+    @Published var autoOff: AutoOffOptions
+    @Published var profiles: [LightingProfile]
+    @Published var launchAtLogin = LaunchAtLogin.isEnabled
+    @Published var launchAtLoginNote: String?
+
     @Published var statusLine = "Starting"
     @Published var isConnected = false
+    @Published var isLit = false
 
     var onLightingModeChange: ((LightingMode) -> Void)?
+    var onEnabledChange: ((Bool) -> Void)?
+    var onApplied: (() -> Void)?
     let liveColors: LiveColors
     let previewPoints: [CGPoint]
 
@@ -46,22 +59,22 @@ final class SettingsStore: ObservableObject {
     private let averager: MetalZoneAverager
     private let frameSettings: LiveFrameSettings
     private let effectSettings: LiveEffectSettings
-    private var appliedMode: LightingMode
+    private let outputSettings: LiveOutputSettings
     private let restartOnlySnapshot: AppConfig
     private var cancellables: Set<AnyCancellable> = []
     private var isApplyingExternally = false
 
     init(
         config: AppConfig, configPath: String, averager: MetalZoneAverager, frameSettings: LiveFrameSettings,
-        effectSettings: LiveEffectSettings, liveColors: LiveColors
+        effectSettings: LiveEffectSettings, outputSettings: LiveOutputSettings, liveColors: LiveColors
     ) {
+        self.outputSettings = outputSettings
         self.liveColors = liveColors
         self.previewPoints = Self.previewPoints(for: config.zones)
         self.configPath = configPath
         self.averager = averager
         self.frameSettings = frameSettings
         self.effectSettings = effectSettings
-        self.appliedMode = config.mode
         self.restartOnlySnapshot = config
 
         displayIndex = config.displayIndex
@@ -86,6 +99,13 @@ final class SettingsStore: ObservableObject {
         primaryColor = config.color
         secondaryColor = config.secondColor
         effectSpeed = config.effectSpeed
+        isEnabled = config.enabled
+        smoothing = config.smoothing
+        saturation = config.saturation
+        whiteBalance = config.whiteBalance
+        night = config.night
+        autoOff = config.autoOff
+        profiles = config.profiles
 
         observeChanges()
         refreshDeviceLists()
@@ -115,6 +135,13 @@ final class SettingsStore: ObservableObject {
         c.color = primaryColor
         c.secondColor = secondaryColor
         c.effectSpeed = effectSpeed
+        c.enabled = isEnabled
+        c.smoothing = smoothing
+        c.saturation = saturation
+        c.whiteBalance = whiteBalance
+        c.night = night
+        c.autoOff = autoOff
+        c.profiles = profiles
         return c
     }
 
@@ -145,10 +172,12 @@ final class SettingsStore: ObservableObject {
         frameSettings.colorOrder = colorOrder
         frameSettings.fixedAdaHeader = fixedAdaHeader
         effectSettings.parameters = currentConfig.effectParameters
-        if lightingMode != appliedMode {
-            appliedMode = lightingMode
-            onLightingModeChange?(lightingMode)
-        }
+        outputSettings.saturation = saturation
+        outputSettings.gains = whiteBalance
+        outputSettings.smoothing = smoothing
+        outputSettings.night = night
+        outputSettings.autoOff = autoOff
+        onApplied?()
 
         do {
             try currentConfig.save(to: configPath)
@@ -157,7 +186,62 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    func toggleEnabled() {
+        isEnabled.toggle()
+    }
+
+    func apply(_ profile: LightingProfile) {
+        let c = profile.applied(to: currentConfig)
+        lightingMode = c.mode
+        primaryColor = c.color
+        secondaryColor = c.secondColor
+        effectSpeed = c.effectSpeed
+        brightness = c.brightness
+        smoothing = c.smoothing
+        saturation = c.saturation
+        isEnabled = true
+    }
+
+    func saveProfile(named name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        profiles = LightingProfile.upserting(LightingProfile(capturing: currentConfig, name: trimmed), into: profiles)
+    }
+
+    func deleteProfile(_ profile: LightingProfile) {
+        profiles.removeAll { $0.name == profile.name }
+    }
+
+    func activeProfileName() -> String? {
+        let config = currentConfig
+        return profiles.first { LightingProfile(capturing: config, name: $0.name) == $0 }?.name
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            try LaunchAtLogin.set(enabled)
+            launchAtLoginNote = LaunchAtLogin.needsApproval ? "Allow Glowline in System Settings → Login Items" : nil
+        } catch {
+            launchAtLoginNote = "Could not change login item: \(error.localizedDescription)"
+        }
+        launchAtLogin = LaunchAtLogin.isEnabled || LaunchAtLogin.needsApproval
+    }
+
     private func observeChanges() {
+        $lightingMode
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] mode in
+                guard let self else { return }
+                self.effectSettings.parameters.mode = mode
+                self.onLightingModeChange?(mode)
+            }
+            .store(in: &cancellables)
+        $isEnabled
+            .dropFirst()
+            .removeDuplicates()
+            .sink { [weak self] enabled in self?.onEnabledChange?(enabled) }
+            .store(in: &cancellables)
         objectWillChange
             .debounce(for: .milliseconds(250), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in self?.applyLiveAndPersist() }

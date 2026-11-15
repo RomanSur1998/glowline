@@ -13,26 +13,17 @@ final class EffectPlayer {
     private static let animatedInterval: TimeInterval = 1.0 / 30
     private static let staticInterval: TimeInterval = 0.1
 
-    private let ledCount: Int
     private let settings: LiveEffectSettings
-    private let frameSettings: LiveFrameSettings
-    private let lastFrameBox: LastFrameBox
-    private let serial: SerialSupervisor?
+    private let sink: FrameSink
     private let queue = DispatchQueue(label: "glowline.effects")
     private var timer: DispatchSourceTimer?
     private var startTime: CFTimeInterval = 0
     private var lastSentFrame: Data?
     private var lastTickWasAnimated = false
 
-    init(
-        ledCount: Int, settings: LiveEffectSettings, frameSettings: LiveFrameSettings, lastFrameBox: LastFrameBox,
-        serial: SerialSupervisor?
-    ) {
-        self.ledCount = ledCount
+    init(settings: LiveEffectSettings, sink: FrameSink) {
         self.settings = settings
-        self.frameSettings = frameSettings
-        self.lastFrameBox = lastFrameBox
-        self.serial = serial
+        self.sink = sink
     }
 
     func start() {
@@ -73,11 +64,10 @@ final class EffectPlayer {
             return
         }
         let time = CACurrentMediaTime() - startTime
-        let colors = EffectRenderer.colors(for: parameters, ledCount: ledCount, time: time)
-        let frame = AdalightFrame.build(colors: colors, colorOrder: frameSettings.colorOrder, fixedHeader: frameSettings.fixedAdaHeader)
+        let colors = EffectRenderer.colors(for: parameters, ledCount: sink.ledCount, time: time)
+        let frame = sink.makeFrame(colors, forScreen: false)
         guard frame != lastSentFrame else { return }
         lastSentFrame = frame
-        lastFrameBox.set(frame)
-        serial?.send(frame)
+        sink.emit(frame)
     }
 }

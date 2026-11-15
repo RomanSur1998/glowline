@@ -53,12 +53,20 @@ struct AppConfig: Codable {
     var color: LEDColor = LEDColor(r: 0xFF, g: 0x7A, b: 0x1A)
     var secondColor: LEDColor = LEDColor(r: 0x2B, g: 0x6C, b: 0xFF)
     var effectSpeed: Double = 1.0
+    var enabled: Bool = true
+    var smoothing: Double = 0.1
+    var saturation: Double = 1.0
+    var whiteBalance: ChannelGains = ChannelGains()
+    var night: NightSchedule = NightSchedule()
+    var autoOff: AutoOffOptions = AutoOffOptions()
+    var profiles: [LightingProfile] = LightingProfile.defaults
 
     init() {}
 
     private enum CodingKeys: String, CodingKey {
         case displayIndex, captureWidth, targetFPS, serialPort, baudRate, zones, gamma, brightness, colorOrder, fixedAdaHeader,
-            letterboxDetection, letterboxThreshold, mode, color, secondColor, effectSpeed
+            letterboxDetection, letterboxThreshold, mode, color, secondColor, effectSpeed,
+            enabled, smoothing, saturation, whiteBalance, night, autoOff, profiles
     }
 
     init(from decoder: Decoder) throws {
@@ -95,6 +103,18 @@ struct AppConfig: Codable {
         color = Self.decodeColor(c, .color) ?? color
         secondColor = Self.decodeColor(c, .secondColor) ?? secondColor
         effectSpeed = try c.decodeIfPresent(Double.self, forKey: .effectSpeed) ?? 1.0
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled) ?? true
+        smoothing = try c.decodeIfPresent(Double.self, forKey: .smoothing) ?? 0.1
+        saturation = try c.decodeIfPresent(Double.self, forKey: .saturation) ?? 1.0
+        whiteBalance = try c.decodeIfPresent(ChannelGains.self, forKey: .whiteBalance) ?? ChannelGains()
+        night = try c.decodeIfPresent(NightSchedule.self, forKey: .night) ?? NightSchedule()
+        autoOff = try c.decodeIfPresent(AutoOffOptions.self, forKey: .autoOff) ?? AutoOffOptions()
+        if let decoded = try? c.decodeIfPresent([LightingProfile].self, forKey: .profiles) {
+            profiles = decoded
+        } else {
+            if c.contains(.profiles) { logError("Could not read \"profiles\" -- using the built-in profiles.") }
+            profiles = LightingProfile.defaults
+        }
     }
 
     private static func decodeColor(_ c: KeyedDecodingContainer<CodingKeys>, _ key: CodingKeys) -> LEDColor? {
