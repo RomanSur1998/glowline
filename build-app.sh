@@ -14,8 +14,9 @@ swift build -c release "${ARCH_FLAGS[@]}"
 BIN_DIR="$(swift build -c release "${ARCH_FLAGS[@]}" --show-bin-path)"
 
 rm -rf "$APP"
-mkdir -p "$APP/Contents/MacOS"
+mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Info.plist "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp "$BIN_DIR/Glowline" "$APP/Contents/MacOS/Glowline"
 
 codesign --force -s - --identifier "$BUNDLE_ID" \
