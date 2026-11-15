@@ -26,7 +26,7 @@ final class MenuBarController: NSObject, NSMenuDelegate {
 
     private func setUp() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.button?.title = "⏳"
+        statusItem.button?.image = StatusIcon.image(.off)
 
         statusMenuItem = NSMenuItem(title: "Status: starting…", action: nil, keyEquivalent: "")
         statusMenuItem.isEnabled = false
@@ -83,16 +83,26 @@ final class MenuBarController: NSObject, NSMenuDelegate {
     func updateStatus(_ status: ConnectionStatus) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            let line: String
+            let connected: Bool
             switch status {
             case .connected(let mode):
-                self.statusItem.button?.title = "💡"
-                self.statusMenuItem.title = "Status: connected, \(Self.describe(mode))"
+                line = "Connected · \(Self.describe(mode))"
+                connected = true
+                self.statusItem.button?.image = StatusIcon.image(.lit)
             case .disconnected:
-                self.statusItem.button?.title = "🌑"
-                self.statusMenuItem.title = "Status: controller not connected"
+                line = "Controller not connected"
+                connected = false
+                self.statusItem.button?.image = StatusIcon.image(.off)
             case .dryRun(let mode):
-                self.statusItem.button?.title = "🧪"
-                self.statusMenuItem.title = "Status: dry run, \(Self.describe(mode))"
+                line = "Dry run · \(Self.describe(mode))"
+                connected = true
+                self.statusItem.button?.image = StatusIcon.image(.half)
+            }
+            self.statusMenuItem.title = "Status: \(line)"
+            MainActor.assumeIsolated {
+                self.settingsStore.statusLine = line
+                self.settingsStore.isConnected = connected
             }
         }
     }
@@ -129,10 +139,56 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         )
 
         let window = NSWindow(contentViewController: hosting)
-        window.title = "Glowline — Settings"
-        window.styleMask = [.titled, .closable]
+        window.title = "Glowline"
+        window.styleMask = [.titled, .closable, .fullSizeContentView]
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+        window.isMovableByWindowBackground = true
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.backgroundColor = .black
         window.isReleasedWhenClosed = false
         window.center()
         return window
+    }
+}
+
+enum StatusIcon {
+    enum Style {
+        case lit, off, half
+    }
+
+    static func image(_ style: Style) -> NSImage {
+        let image = NSImage(size: NSSize(width: 20, height: 16), flipped: true) { _ in
+            let columns = 5, rows = 4
+            let originX: CGFloat = 2, originY: CGFloat = 2
+            let pitchX: CGFloat = 4, pitchY: CGFloat = 4
+            var index = 0
+            for row in 0..<rows {
+                for column in 0..<columns where row == 0 || row == rows - 1 || column == 0 || column == columns - 1 {
+                    let center = NSPoint(x: originX + CGFloat(column) * pitchX, y: originY + CGFloat(row) * pitchY)
+                    let filled: Bool
+                    switch style {
+                    case .lit: filled = true
+                    case .off: filled = false
+                    case .half: filled = index % 2 == 0
+                    }
+                    let radius: CGFloat = filled ? 1.6 : 1.2
+                    let path = NSBezierPath(
+                        ovalIn: NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2))
+                    NSColor.black.setFill()
+                    NSColor.black.setStroke()
+                    if filled {
+                        path.fill()
+                    } else {
+                        path.lineWidth = 0.8
+                        path.stroke()
+                    }
+                    index += 1
+                }
+            }
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 }

@@ -117,11 +117,13 @@ func runApp() async throws -> AppRuntime {
     )
     let frameSettings = LiveFrameSettings(colorOrder: config.colorOrder, fixedAdaHeader: config.fixedAdaHeader)
     let effectSettings = LiveEffectSettings(parameters: config.effectParameters)
+    let liveColors = LiveColors()
 
     let settingsSavePath =
         resolvedConfigPath ?? "\(FileManager.default.homeDirectoryForCurrentUser.path)/.config/glowline/config.json"
     let settingsStore = await SettingsStore(
-        config: config, configPath: settingsSavePath, averager: averager, frameSettings: frameSettings, effectSettings: effectSettings)
+        config: config, configPath: settingsSavePath, averager: averager, frameSettings: frameSettings, effectSettings: effectSettings,
+        liveColors: liveColors)
 
     let menuBarController = MenuBarController(settingsStore: settingsStore)
 
@@ -134,7 +136,8 @@ func runApp() async throws -> AppRuntime {
 
     let lastFrameBox = LastFrameBox()
     let supervisor = CaptureSupervisor(
-        config: config, averager: averager, serial: serialSupervisor, lastFrameBox: lastFrameBox, frameSettings: frameSettings)
+        config: config, averager: averager, serial: serialSupervisor, lastFrameBox: lastFrameBox, frameSettings: frameSettings,
+        liveColors: liveColors)
     let effectPlayer = EffectPlayer(
         ledCount: zoneLayout.totalCount, settings: effectSettings, frameSettings: frameSettings, lastFrameBox: lastFrameBox,
         serial: serialSupervisor)

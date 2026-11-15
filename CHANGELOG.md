@@ -12,6 +12,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 - Screen capture runs only in Screen sync mode; effect modes stop it
+- Redesigned settings window: monochrome dot-matrix style, live strip preview, custom dot sliders, toggles and zone steppers
+- Menu-bar status icon is now a dot-matrix glyph instead of an emoji
 
 ## [0.1.0] - 2026-11-08
 

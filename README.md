@@ -31,12 +31,12 @@ Glowline is the opposite: a small native Swift app with no dependencies. It live
 - **Skydimo and standard Adalight protocols**: classic `Ada` header with checksum, or the fixed Skydimo header. Any baud rate (115200 to 2 000 000) is supported.
 - **Auto-detection** of common USB-serial LED controllers: CH340/CH9102 (WCH), CP210x, FTDI, PL2303, Arduino and ESP32 native USB.
 - **Flexible strip layout**: LED count per side, start corner, direction and edge sampling depth.
-- **Live settings window**: brightness, gamma, color order and letterbox settings apply instantly and are saved automatically.
+- **Live settings window**: monochrome dot-matrix design with a live preview of the strip around the screen; brightness, gamma, colors and letterbox settings apply instantly and are saved automatically.
 - **Self-healing**:
   - recovers from sleep/wake, USB re-enumeration and display reconnects without a relaunch;
   - a watchdog unblocks hung serial writes;
   - capture pauses while the controller is unplugged.
-- **Menu-bar only**: no Dock icon; the status shows at a glance (💡 connected, 🌑 waiting for the controller).
+- **Menu-bar only**: no Dock icon; a dot-matrix status icon shows at a glance whether the controller is connected (filled dots) or not (hollow dots).
 - **Hardware diagnostics**: `--test-frame`, `--test-ends`, `--list-serial-devices`, `--list-displays`, `--dry-run`.
 
 ## Supported hardware
@@ -80,7 +80,7 @@ open Glowline.app
 
 ## Usage
 
-1. Plug in the controller. The menu-bar icon turns 💡 once it is found, and capture starts automatically.
+1. Plug in the controller. The menu-bar icon's dots fill in once it is found, and the current mode starts automatically.
 2. Open **Settings…** from the menu-bar icon and set the LED count per side.
 3. To find out where LED #0 is and which way the strip runs:
    ```sh

@@ -14,3 +14,7 @@ final class Locked<Value> {
         set { lock.lock(); value = newValue; lock.unlock() }
     }
 }
+
+final class LiveColors {
+    @Locked var colors: [(UInt8, UInt8, UInt8)] = []
+}

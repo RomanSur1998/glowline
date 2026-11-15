@@ -24,19 +24,21 @@ final class CaptureSupervisor: @unchecked Sendable {
     private let serial: SerialSupervisor?
     private let lastFrameBox: LastFrameBox
     private let frameSettings: LiveFrameSettings
+    private let liveColors: LiveColors
     private let resource: RetryingResource
     private var frameCounter = 0
     @Locked private var currentCapture: ScreenCapture? = nil
 
     init(
         config: AppConfig, averager: MetalZoneAverager, serial: SerialSupervisor?, lastFrameBox: LastFrameBox,
-        frameSettings: LiveFrameSettings
+        frameSettings: LiveFrameSettings, liveColors: LiveColors
     ) {
         self.config = config
         self.averager = averager
         self.serial = serial
         self.lastFrameBox = lastFrameBox
         self.frameSettings = frameSettings
+        self.liveColors = liveColors
         var attempt: (() async throws -> Void)!
         self.resource = RetryingResource(backoffNanoseconds: 3_000_000_000) { try await attempt() }
         attempt = { [weak self] in try await self?.beginCapture() }
@@ -86,6 +88,7 @@ final class CaptureSupervisor: @unchecked Sendable {
 
     private func handleFrame(_ pixelBuffer: CVPixelBuffer) {
         guard let colors = averager.averageZoneColors(pixelBuffer: pixelBuffer) else { return }
+        liveColors.colors = colors
         let frame = AdalightFrame.build(colors: colors, colorOrder: frameSettings.colorOrder, fixedHeader: frameSettings.fixedAdaHeader)
         frameCounter += 1
         if frameCounter % 60 == 1 {

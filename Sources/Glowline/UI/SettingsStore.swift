@@ -29,7 +29,12 @@ final class SettingsStore: ObservableObject {
     @Published var secondaryColor: LEDColor
     @Published var effectSpeed: Double
 
+    @Published var statusLine = "Starting"
+    @Published var isConnected = false
+
     var onLightingModeChange: ((LightingMode) -> Void)?
+    let liveColors: LiveColors
+    let previewPoints: [CGPoint]
 
     var restartRequired: Bool {
         AppConfig.restartRequiredFields(current: currentConfig, runningConfig: restartOnlySnapshot)
@@ -48,8 +53,10 @@ final class SettingsStore: ObservableObject {
 
     init(
         config: AppConfig, configPath: String, averager: MetalZoneAverager, frameSettings: LiveFrameSettings,
-        effectSettings: LiveEffectSettings
+        effectSettings: LiveEffectSettings, liveColors: LiveColors
     ) {
+        self.liveColors = liveColors
+        self.previewPoints = Self.previewPoints(for: config.zones)
         self.configPath = configPath
         self.averager = averager
         self.frameSettings = frameSettings
@@ -109,6 +116,15 @@ final class SettingsStore: ObservableObject {
         c.secondColor = secondaryColor
         c.effectSpeed = effectSpeed
         return c
+    }
+
+    private static func previewPoints(for zones: ZoneLayoutConfig) -> [CGPoint] {
+        var shallow = zones
+        shallow.edgeDepthFraction = 0.001
+        let width = 1600, height = 900
+        return ZoneLayout(config: shallow).buildZoneRects(frameWidth: width, frameHeight: height).map { r in
+            CGPoint(x: Double(r.x + r.z) / 2 / Double(width), y: Double(r.y + r.w) / 2 / Double(height))
+        }
     }
 
     func refreshDeviceLists() {
