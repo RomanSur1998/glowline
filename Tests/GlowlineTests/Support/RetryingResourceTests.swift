@@ -72,21 +72,56 @@ final class RetryingResourceTests: XCTestCase {
         XCTAssertEqual(counter.count, 1)
     }
 
-    func testRetryNowCoalescesConcurrentCalls() {
+    func testRetryNowCoalescesCallsWhileAttemptIsInFlight() async {
         struct Boom: Error {}
         let counter = AttemptCounter()
-        let resource = RetryingResource(backoffNanoseconds: 200_000_000) {
+        let gate = Gate()
+        let started = expectation(description: "first attempt started")
+        started.assertForOverFulfill = false
+        let resource = RetryingResource(backoffNanoseconds: 10_000_000_000) {
             counter.record()
+            started.fulfill()
+            await gate.wait()
             throw Boom()
         }
         resource.start()
+        await fulfillment(of: [started], timeout: 2)
+
         resource.retryNow()
         resource.retryNow()
         resource.scheduleRestart()
-
-        let settled = expectation(description: "settled before the 200ms backoff elapses")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { settled.fulfill() }
-        wait(for: [settled], timeout: 0.15)
+        try? await Task.sleep(nanoseconds: 300_000_000)
         XCTAssertEqual(counter.count, 1)
+
+        resource.stop {}
+        gate.open()
+    }
+}
+
+private final class Gate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if isOpen {
+                lock.unlock()
+                continuation.resume()
+                return
+            }
+            waiters.append(continuation)
+            lock.unlock()
+        }
+    }
+
+    func open() {
+        lock.lock()
+        isOpen = true
+        let pending = waiters
+        waiters = []
+        lock.unlock()
+        pending.forEach { $0.resume() }
     }
 }
